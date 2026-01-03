@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, MessageSquare, Send, Webhook, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Home, MessageSquare, Send, Webhook, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 
 const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -76,13 +76,35 @@ const Sidebar = () => {
       {/* Footer */}
       <div className="p-4 border-t border-slate-200">
         {!collapsed ? (
-          <div className="text-center">
-            <p className="text-xs font-medium text-slate-500">WhatsApp Web API</p>
-            <p className="text-xs text-emerald-600 font-semibold mt-1">v1.0</p>
+          <div className="text-center space-y-2">
+            <div>
+              <p className="text-xs font-medium text-slate-500">WhatsApp Services</p>
+              <p className="text-xs text-emerald-600 font-semibold">v1.0</p>
+            </div>
+            <div className="pt-2 border-t border-slate-100">
+              <p className="text-[10px] text-slate-400">Developed by</p>
+              <a 
+                href="https://rasyid.in" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center justify-center gap-1 mt-0.5"
+              >
+                Khulafaur Rasyidin
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
           </div>
         ) : (
           <div className="text-center">
-            <p className="text-xs text-emerald-600 font-bold">v1.0</p>
+            <a 
+              href="https://rasyid.in" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-xs text-emerald-600 font-bold hover:text-emerald-700"
+              title="Developed by Khulafaur Rasyidin"
+            >
+              v1.0
+            </a>
           </div>
         )}
       </div>

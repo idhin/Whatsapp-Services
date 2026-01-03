@@ -47,7 +47,10 @@
     "webhook",
     "nodejs"
   ],
-  "author": "Casa Neira",
+  "author": {
+    "name": "Khulafaur Rasyidin",
+    "url": "https://rasyid.in"
+  },
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"

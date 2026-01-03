@@ -2,6 +2,10 @@
 
 WhatsApp Web API with Professional Dashboard - A complete solution for WhatsApp automation with REST API backend and modern React frontend.
 
+## 👨‍💻 Developer
+
+**Khulafaur Rasyidin** - [rasyid.in](https://rasyid.in)
+
 ## 🙏 Credits & Attribution
 
 This project is developed based on the excellent work by **Christophe Hubert**:
@@ -192,6 +196,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-**Developed with ❤️ by Casa Neira**
+**Developed with ❤️ by [Khulafaur Rasyidin](https://rasyid.in)**
 
 *Based on [whatsapp-api](https://github.com/chrishubert/whatsapp-api) by Christophe Hubert*
