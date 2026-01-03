@@ -1,0 +1,26 @@
+[
+  {
+    "id": "wh_fw4j7bvmzmjypq5my",
+    "name": "test webhook",
+    "sessionId": "PROD",
+    "chatId": "120363422791432075@g.us",
+    "chatName": "QA Test Batchub",
+    "secretToken": "whsec_mc6le6akgxq8pt42f5z0v2",
+    "enabled": true,
+    "rateLimit": 10,
+    "createdAt": "2026-01-03T19:45:35.242Z",
+    "updatedAt": "2026-01-03T19:45:35.242Z"
+  },
+  {
+    "id": "wh_1q04qfds0mjypt04p",
+    "name": "casa neira test",
+    "sessionId": "PROD",
+    "chatId": "120363420843252608@g.us",
+    "chatName": "Owner Casa Neira",
+    "secretToken": "whsec_6bxxnlxc0a3csalkhfjj7",
+    "enabled": true,
+    "rateLimit": 10,
+    "createdAt": "2026-01-03T19:47:48.073Z",
+    "updatedAt": "2026-01-03T19:47:48.073Z"
+  }
+]
