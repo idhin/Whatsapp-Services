@@ -100,6 +100,154 @@ cd frontend && npm run dev
 - **API**: http://localhost:3000
 - **Swagger Docs**: http://localhost:3000/api-docs
 
+## 🐳 Docker Deployment
+
+### Quick Start with Docker Compose
+
+The easiest way to deploy is using Docker Compose, which runs both backend and frontend containers:
+
+```bash
+# Build and start both services
+docker-compose up -d --build
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+**Access Points:**
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:3000
+
+### Production Deployment with External Nginx
+
+For production environments with an existing nginx server, use separate domains:
+
+**1. Update DNS Records**
+```
+dashboard.yourdomain.com → Your Server IP
+api.yourdomain.com → Your Server IP
+```
+
+**2. Configure External Nginx**
+
+Copy the example configuration:
+```bash
+sudo cp nginx-example.conf /etc/nginx/sites-available/whatsapp-services
+sudo nano /etc/nginx/sites-available/whatsapp-services
+
+# Update server_name values:
+# - dashboard.yourdomain.com (line 23)
+# - api.yourdomain.com (line 56)
+```
+
+Enable the site:
+```bash
+sudo ln -s /etc/nginx/sites-available/whatsapp-services /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+**3. Start Docker Containers**
+```bash
+docker-compose up -d --build
+```
+
+**4. Setup SSL (Optional but Recommended)**
+```bash
+# Install certbot
+sudo apt install certbot python3-certbot-nginx
+
+# Get SSL certificates
+sudo certbot --nginx -d dashboard.yourdomain.com
+sudo certbot --nginx -d api.yourdomain.com
+
+# Auto-renewal is configured automatically
+```
+
+**Access Points:**
+- Frontend: https://dashboard.yourdomain.com
+- Backend API: https://api.yourdomain.com
+
+### Docker Commands Reference
+
+```bash
+# Build only
+docker-compose build
+
+# Start in foreground (see logs)
+docker-compose up
+
+# Start in background
+docker-compose up -d
+
+# View logs
+docker-compose logs -f backend
+docker-compose logs -f frontend
+
+# Restart specific service
+docker-compose restart backend
+docker-compose restart frontend
+
+# Stop all services
+docker-compose down
+
+# Remove volumes (WARNING: deletes session data)
+docker-compose down -v
+```
+
+### Environment Variables
+
+Create `.env` file in project root for production:
+
+```env
+# Backend
+PORT=3000
+API_KEY=your_secure_api_key_here
+BASE_WEBHOOK_URL=https://api.yourdomain.com/localCallbackExample
+ENABLE_LOCAL_CALLBACK_EXAMPLE=FALSE
+ENABLE_SWAGGER_ENDPOINT=TRUE
+MAX_ATTACHMENT_SIZE=5000000
+
+# Frontend
+NODE_ENV=production
+```
+
+### Updating the Application
+
+```bash
+# Pull latest changes
+git pull origin main
+
+# Rebuild and restart
+docker-compose up -d --build
+
+# Check if containers are running
+docker-compose ps
+```
+
+### Troubleshooting
+
+**Container won't start:**
+```bash
+docker-compose logs backend
+docker-compose logs frontend
+```
+
+**Reset everything:**
+```bash
+docker-compose down
+docker-compose up --build --force-recreate
+```
+
+**Check container status:**
+```bash
+docker ps
+docker stats
+```
+
 ## 📖 Usage
 
 ### 1. Start a Session
@@ -145,17 +293,6 @@ cd frontend && npm run dev
 | POST | `/groupChat/inviteUser/:sessionId` | Invite user to group |
 
 See full documentation at `/api-docs` endpoint.
-
-## 🐳 Docker
-
-```bash
-# Using Docker Compose
-docker-compose up -d
-
-# Or build manually
-docker build -t whatsapp-services .
-docker run -p 3000:3000 whatsapp-services
-```
 
 ## 📁 Project Structure
 
