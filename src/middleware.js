@@ -18,6 +18,13 @@ const apikey = async (req, res, next) => {
         }
       }
   */
+  
+  // Skip API key check if user is authenticated via JWT
+  if (req.user) {
+    return next()
+  }
+  
+  // Check API key for non-JWT authenticated requests
   if (globalApiKey) {
     const apiKey = req.headers['x-api-key']
     if (!apiKey || apiKey !== globalApiKey) {
