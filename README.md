@@ -67,17 +67,62 @@ cd frontend && npm install
 Create a `.env` file in the root directory:
 
 ```env
-# Server Configuration
-PORT=3000
-API_KEY=your_api_key_here
+# ============================================
+# PORT CONFIGURATION
+# ============================================
+# You can use either PORT or BACKEND_PORT (both work)
+PORT=3001                    # Backend API port (backward compatible)
+BACKEND_PORT=3001           # Alternative name (recommended for clarity)
+FRONTEND_PORT=5173          # Frontend dashboard port
 
-# Webhook Configuration
-BASE_WEBHOOK_URL=http://localhost:3000/localCallbackExample
+# ============================================
+# API SECURITY
+# ============================================
+API_KEY=your_api_key_here   # Optional: Global API key for authentication
 
-# Optional Settings
-ENABLE_LOCAL_CALLBACK_EXAMPLE=TRUE
-ENABLE_SWAGGER_ENDPOINT=TRUE
+# ============================================
+# WEBHOOK CONFIGURATION
+# ============================================
+# Base URL for webhook callbacks
+BASE_WEBHOOK_URL=http://localhost:3001/localCallbackExample
+
+# Per-session webhook (optional)
+# Format: {SESSIONID}_WEBHOOK_URL
+# Example: MYSESSION_WEBHOOK_URL=https://your-server.com/webhook
+
+# ============================================
+# FEATURE FLAGS
+# ============================================
+ENABLE_LOCAL_CALLBACK_EXAMPLE=TRUE  # Enable local callback example endpoint
+ENABLE_SWAGGER_ENDPOINT=TRUE        # Enable Swagger API docs at /api-docs
+SET_MESSAGES_AS_SEEN=FALSE          # Auto-mark messages as read
+
+# ============================================
+# CALLBACK SETTINGS
+# ============================================
+# Disable specific callbacks (pipe-separated)
+# Options: message, qr, authenticated, ready, disconnected, message_ack, message_reaction
+DISABLED_CALLBACKS=message_ack|message_reaction
+
+# ============================================
+# FILE & RATE LIMITING
+# ============================================
+MAX_ATTACHMENT_SIZE=5000000         # Max attachment size in bytes (5MB)
+RATE_LIMIT_MAX=1000                 # Max requests per window
+RATE_LIMIT_WINDOW_MS=1000           # Rate limit window in milliseconds
+
+# ============================================
+# WHATSAPP WEB VERSION (Advanced)
+# ============================================
+# WEB_VERSION=2.2328.5              # Pin specific WhatsApp Web version
+# WEB_VERSION_CACHE_TYPE=none       # Cache type: none, local, or remote
+# RECOVER_SESSIONS=TRUE             # Auto-recover sessions on startup
 ```
+
+**Important Notes:**
+- **Backward Compatible**: Old `.env` files using `PORT` still work!
+- **No Hardcoded Ports**: Frontend automatically connects to backend using the port you set
+- **Per-Session Webhooks**: You can set different webhooks for each session
 
 ### Running the Application
 
@@ -96,9 +141,9 @@ cd frontend && npm run dev
 ```
 
 ### Access Points
-- **Dashboard**: http://localhost:5173
-- **API**: http://localhost:3000
-- **Swagger Docs**: http://localhost:3000/api-docs
+- **Dashboard**: http://localhost:5173 (or your `FRONTEND_PORT`)
+- **API**: http://localhost:3001 (or your `BACKEND_PORT`)
+- **Swagger Docs**: http://localhost:3001/api-docs
 
 ## 🐳 Docker Deployment
 
@@ -107,10 +152,18 @@ cd frontend && npm run dev
 The easiest way to deploy is using Docker Compose, which runs both backend and frontend containers:
 
 ```bash
-# Build and start both services
+# 1. Create .env file (if not exists)
+cat > .env << 'EOF'
+BACKEND_PORT=3001
+FRONTEND_PORT=5173
+ENABLE_LOCAL_CALLBACK_EXAMPLE=TRUE
+ENABLE_SWAGGER_ENDPOINT=TRUE
+EOF
+
+# 2. Build and start both services
 docker-compose up -d --build
 
-# View logs
+# 3. View logs
 docker-compose logs -f
 
 # Stop services
@@ -118,8 +171,11 @@ docker-compose down
 ```
 
 **Access Points:**
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:3000
+- Frontend: http://localhost:5173 (or your `FRONTEND_PORT`)
+- Backend API: http://localhost:3001 (or your `BACKEND_PORT`)
+
+**Changing Ports:**
+Simply edit `.env` file and change `BACKEND_PORT` and/or `FRONTEND_PORT`, then run `docker-compose up -d --build`
 
 ### Production Deployment with External Nginx
 
@@ -131,16 +187,33 @@ dashboard.yourdomain.com → Your Server IP
 api.yourdomain.com → Your Server IP
 ```
 
-**2. Configure External Nginx**
+**2. Create .env file**
+
+Make sure you have a `.env` file in the project root:
+```bash
+cat > .env << 'EOF'
+BACKEND_PORT=3001
+FRONTEND_PORT=5173
+BASE_WEBHOOK_URL=https://api.yourdomain.com/localCallbackExample
+ENABLE_LOCAL_CALLBACK_EXAMPLE=FALSE
+ENABLE_SWAGGER_ENDPOINT=TRUE
+MAX_ATTACHMENT_SIZE=5000000
+DISABLED_CALLBACKS=message_ack|message_reaction
+EOF
+```
+
+**3. Configure External Nginx**
 
 Copy the example configuration:
 ```bash
 sudo cp nginx-example.conf /etc/nginx/sites-available/whatsapp-services
 sudo nano /etc/nginx/sites-available/whatsapp-services
 
-# Update server_name values:
-# - dashboard.yourdomain.com (line 23)
-# - api.yourdomain.com (line 56)
+# Update the following:
+# - server_name values (dashboard.yourdomain.com and api.yourdomain.com)
+# - proxy_pass ports if you changed them in .env
+#   * Frontend: proxy_pass http://localhost:5173 (or your FRONTEND_PORT)
+#   * Backend: proxy_pass http://localhost:3001 (or your BACKEND_PORT)
 ```
 
 Enable the site:
@@ -150,12 +223,12 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-**3. Start Docker Containers**
+**4. Start Docker Containers**
 ```bash
 docker-compose up -d --build
 ```
 
-**4. Setup SSL (Optional but Recommended)**
+**5. Setup SSL (Optional but Recommended)**
 ```bash
 # Install certbot
 sudo apt install certbot python3-certbot-nginx
@@ -263,10 +336,20 @@ docker stats
 4. Type your message and send
 
 ### 3. Create Webhooks
+
+**Option 1: Using Dashboard (Recommended)**
 1. Go to "Webhooks" page
 2. Create a new webhook with target chat
 3. Use the generated URL in your external applications
 4. Send POST requests with `{ "message": "your text" }`
+
+**Option 2: Using Per-Session Webhook (via .env)**
+Add to your `.env` file:
+```env
+# Replace MYSESSION with your actual session ID
+MYSESSION_WEBHOOK_URL=https://your-server.com/webhook
+```
+Then all messages from that session will be sent to your webhook URL.
 
 ## 🔌 API Endpoints
 

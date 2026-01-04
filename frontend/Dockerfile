@@ -15,20 +15,22 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Stage 2: Serve the application with Node serve
-FROM node:20-alpine
+# Stage 2: Serve with nginx for proper API proxying
+FROM nginx:alpine
 
-WORKDIR /app
+# Copy built files
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Install serve package globally
-RUN npm install -g serve
+# Copy nginx config template
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
-# Copy built files from builder stage
-COPY --from=builder /app/dist ./dist
+# Environment variables for backend connection (can be overridden via docker-compose)
+ENV BACKEND_HOST=backend
+ENV BACKEND_PORT=3001
 
-# Expose port
-EXPOSE 3001
+# Expose port (nginx listens on port 80 by default)
+EXPOSE 80
 
-# Start serve
-CMD ["serve", "-s", "dist", "-l", "3001"]
+# nginx:alpine image automatically runs envsubst on templates in /etc/nginx/templates/
+CMD ["nginx", "-g", "daemon off;"]
 
