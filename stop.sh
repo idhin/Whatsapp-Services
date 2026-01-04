@@ -2,23 +2,27 @@
 # ============================================
 # WhatsApp Services - Stop Script
 # ============================================
-# Stops all containers and optionally clears sessions
-#
 # Usage: 
-#   ./stop.sh           - Stop only
-#   ./stop.sh --clear   - Stop and clear all sessions
+#   ./stop.sh                - Stop only
+#   ./stop.sh --clear        - Stop and clear sessions only
+#   ./stop.sh --clear --all  - Stop and clear everything
 # ============================================
 
 echo "🛑 Stopping containers..."
 docker-compose down
 
 if [ "$1" == "--clear" ]; then
-    echo "🗑️  Clearing all sessions..."
+    echo "🗑️  Clearing WhatsApp sessions..."
     rm -rf ./sessions/session-*
     rm -f ./sessions/message_log.txt
-    rm -f ./sessions/webhooks-data.json
-    rm -f ./sessions/webhooks-history.json
     echo "✅ Sessions cleared!"
+    
+    if [ "$2" == "--all" ]; then
+        echo "🗑️  Clearing webhooks data..."
+        rm -f ./sessions/webhooks-data.json
+        rm -f ./sessions/webhooks-history.json
+        echo "✅ All data cleared!"
+    fi
 fi
 
 echo ""

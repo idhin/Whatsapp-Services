@@ -2,15 +2,27 @@ const STORAGE_KEY = 'whatsapp-webhooks';
 const HISTORY_KEY = 'whatsapp-webhook-history';
 const RATE_LIMIT_KEY = 'whatsapp-webhook-ratelimit';
 
+// Get API base URL
+const getApiUrl = () => import.meta.env.VITE_API_URL || '';
+
 // Sync webhooks to server file system
 export const syncToServer = async () => {
   try {
     const webhooks = getAllWebhooks();
-    const response = await fetch('/api/webhook-sync', {
+    const token = localStorage.getItem('auth_token');
+    
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    
+    // Add JWT token if available
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    const response = await fetch(`${getApiUrl()}/api/webhook-sync`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers,
       body: JSON.stringify(webhooks)
     });
     const data = await response.json();
