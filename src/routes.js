@@ -5,7 +5,9 @@ const swaggerDocument = require('../swagger.json')
 const { enableLocalCallbackExample, enableSwaggerEndpoint } = require('./config')
 
 const middleware = require('./middleware')
+const authMiddleware = require('./middleware/auth')
 const healthController = require('./controllers/healthController')
+const authController = require('./controllers/authController')
 const sessionController = require('./controllers/sessionController')
 const clientController = require('./controllers/clientController')
 const chatController = require('./controllers/chatController')
@@ -29,10 +31,25 @@ if (enableLocalCallbackExample) {
 
 /**
  * ================
+ * AUTH ENDPOINTS
+ * ================
+ */
+
+// Public auth routes (no authentication required)
+routes.post('/api/auth/login', authController.login)
+routes.post('/api/auth/verify-otp', authController.verifyOTP)
+routes.post('/api/auth/logout', authController.logout)
+
+// Protected auth route
+routes.get('/api/auth/verify', authMiddleware.verifyToken, authController.verifyToken)
+
+/**
+ * ================
  * SESSION ENDPOINTS
  * ================
  */
 const sessionRouter = express.Router()
+sessionRouter.use(authMiddleware.verifyToken)
 sessionRouter.use(middleware.apikey)
 sessionRouter.use(middleware.sessionSwagger)
 routes.use('/session', sessionRouter)
@@ -53,8 +70,9 @@ sessionRouter.get('/terminateAll', sessionController.terminateAllSessions)
  */
 
 const clientRouter = express.Router()
+clientRouter.use(authMiddleware.verifyToken)
 clientRouter.use(middleware.apikey)
-sessionRouter.use(middleware.clientSwagger)
+clientRouter.use(middleware.clientSwagger)
 routes.use('/client', clientRouter)
 
 clientRouter.get('/getClassInfo/:sessionId', [middleware.sessionNameValidation, middleware.sessionValidation], clientController.getClassInfo)
@@ -99,8 +117,9 @@ clientRouter.get('/getWWebVersion/:sessionId', [middleware.sessionNameValidation
  * ================
  */
 const chatRouter = express.Router()
+chatRouter.use(authMiddleware.verifyToken)
 chatRouter.use(middleware.apikey)
-sessionRouter.use(middleware.chatSwagger)
+chatRouter.use(middleware.chatSwagger)
 routes.use('/chat', chatRouter)
 
 chatRouter.post('/getClassInfo/:sessionId', [middleware.sessionNameValidation, middleware.sessionValidation], chatController.getClassInfo)
@@ -118,8 +137,9 @@ chatRouter.post('/sendStateTyping/:sessionId', [middleware.sessionNameValidation
  * ================
  */
 const groupChatRouter = express.Router()
+groupChatRouter.use(authMiddleware.verifyToken)
 groupChatRouter.use(middleware.apikey)
-sessionRouter.use(middleware.groupChatSwagger)
+groupChatRouter.use(middleware.groupChatSwagger)
 routes.use('/groupChat', groupChatRouter)
 
 groupChatRouter.post('/getClassInfo/:sessionId', [middleware.sessionNameValidation, middleware.sessionValidation], groupChatController.getClassInfo)
@@ -143,8 +163,9 @@ groupChatRouter.post('/deletePicture/:sessionId', [middleware.sessionNameValidat
  * ================
  */
 const messageRouter = express.Router()
+messageRouter.use(authMiddleware.verifyToken)
 messageRouter.use(middleware.apikey)
-sessionRouter.use(middleware.messageSwagger)
+messageRouter.use(middleware.messageSwagger)
 routes.use('/message', messageRouter)
 
 messageRouter.post('/getClassInfo/:sessionId', [middleware.sessionNameValidation, middleware.sessionValidation], messageController.getClassInfo)
@@ -167,8 +188,9 @@ messageRouter.post('/unstar/:sessionId', [middleware.sessionNameValidation, midd
  * ================
  */
 const contactRouter = express.Router()
+contactRouter.use(authMiddleware.verifyToken)
 contactRouter.use(middleware.apikey)
-sessionRouter.use(middleware.contactSwagger)
+contactRouter.use(middleware.contactSwagger)
 routes.use('/contact', contactRouter)
 
 contactRouter.post('/getClassInfo/:sessionId', [middleware.sessionNameValidation, middleware.sessionValidation], contactController.getClassInfo)
@@ -187,11 +209,11 @@ contactRouter.post('/getProfilePicUrl/:sessionId', [middleware.sessionNameValida
 const webhookRouter = express.Router()
 routes.use('/api', webhookRouter)
 
-// Webhook sync (no API key required for frontend sync)
-webhookRouter.post('/webhook-sync', webhookController.syncWebhooks)
-webhookRouter.get('/webhook-history', webhookController.getHistory)
+// Webhook sync and history (protected with JWT for dashboard)
+webhookRouter.post('/webhook-sync', authMiddleware.verifyToken, webhookController.syncWebhooks)
+webhookRouter.get('/webhook-history', authMiddleware.verifyToken, webhookController.getHistory)
 
-// Incoming webhook handler (uses its own auth via secret token)
+// Incoming webhook handler (uses its own auth via secret token, remains public)
 webhookRouter.post('/webhook/:webhookId', webhookController.handleWebhook)
 
 /**

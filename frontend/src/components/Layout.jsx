@@ -1,8 +1,18 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { Toaster } from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
+import { LogOut, User } from 'lucide-react';
 
 const Layout = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
@@ -17,11 +27,29 @@ const Layout = () => {
               <p className="text-sm text-slate-500">Manage your WhatsApp sessions and messages</p>
             </div>
             <div className="flex items-center gap-3">
-              {/* Could add user menu, notifications, etc here */}
+              {/* System Status */}
               <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 rounded-lg border border-emerald-200">
                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
                 <span className="text-sm font-medium text-emerald-700">System Active</span>
               </div>
+              
+              {/* User Info */}
+              {user && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">
+                  <User className="w-4 h-4 text-slate-600" />
+                  <span className="text-sm font-medium text-slate-700">{user.username}</span>
+                </div>
+              )}
+              
+              {/* Logout Button */}
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
+                title="Logout"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="text-sm font-medium">Logout</span>
+              </button>
             </div>
           </div>
         </div>
