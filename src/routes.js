@@ -12,6 +12,7 @@ const chatController = require('./controllers/chatController')
 const groupChatController = require('./controllers/groupChatController')
 const messageController = require('./controllers/messageController')
 const contactController = require('./controllers/contactController')
+const webhookController = require('./controllers/webhookController')
 
 /**
  * ================
@@ -178,6 +179,21 @@ contactRouter.post('/unblock/:sessionId', [middleware.sessionNameValidation, mid
 contactRouter.post('/getFormattedNumber/:sessionId', [middleware.sessionNameValidation, middleware.sessionValidation], contactController.getFormattedNumber)
 contactRouter.post('/getCountryCode/:sessionId', [middleware.sessionNameValidation, middleware.sessionValidation], contactController.getCountryCode)
 contactRouter.post('/getProfilePicUrl/:sessionId', [middleware.sessionNameValidation, middleware.sessionValidation], contactController.getProfilePicUrl)
+/**
+ * ================
+ * WEBHOOK ENDPOINTS
+ * ================
+ */
+const webhookRouter = express.Router()
+routes.use('/api', webhookRouter)
+
+// Webhook sync (no API key required for frontend sync)
+webhookRouter.post('/webhook-sync', webhookController.syncWebhooks)
+webhookRouter.get('/webhook-history', webhookController.getHistory)
+
+// Incoming webhook handler (uses its own auth via secret token)
+webhookRouter.post('/webhook/:webhookId', webhookController.handleWebhook)
+
 /**
  * ================
  * SWAGGER ENDPOINTS
