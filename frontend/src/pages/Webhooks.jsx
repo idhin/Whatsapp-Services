@@ -46,6 +46,9 @@ const Webhooks = () => {
   const [webhookName, setWebhookName] = useState('');
   const [targetSession, setTargetSession] = useState('');
   const [targetChatId, setTargetChatId] = useState('');
+  const [manualChatId, setManualChatId] = useState('');
+  const [manualChatName, setManualChatName] = useState('');
+  const [inputMode, setInputMode] = useState('select'); // 'select' or 'manual'
   const [chats, setChats] = useState([]);
   const [rateLimit, setRateLimit] = useState(10);
   const [loading, setLoading] = useState(false);
@@ -97,19 +100,32 @@ const Webhooks = () => {
       return;
     }
     
-    if (!targetChatId) {
-      toast.error('Please select a target chat');
-      return;
+    // Validate based on input mode
+    let finalChatId, finalChatName;
+    
+    if (inputMode === 'select') {
+      if (!targetChatId) {
+        toast.error('Please select a target chat');
+        return;
+      }
+      finalChatId = targetChatId;
+      finalChatName = chats.find(c => c.id._serialized === targetChatId)?.name || targetChatId;
+    } else {
+      // Manual mode
+      if (!manualChatId.trim()) {
+        toast.error('Please enter a chat ID');
+        return;
+      }
+      finalChatId = manualChatId.trim();
+      finalChatName = manualChatName.trim() || finalChatId;
     }
 
     try {
-      const chatName = chats.find(c => c.id._serialized === targetChatId)?.name || targetChatId;
-      
       const newWebhook = createWebhook({
         name: webhookName,
         sessionId: targetSession,
-        chatId: targetChatId,
-        chatName,
+        chatId: finalChatId,
+        chatName: finalChatName,
         rateLimit,
       });
 
@@ -121,6 +137,8 @@ const Webhooks = () => {
       // Reset form
       setWebhookName('');
       setTargetChatId('');
+      setManualChatId('');
+      setManualChatName('');
       setRateLimit(10);
     } catch (error) {
       toast.error('Failed to create webhook');
@@ -430,42 +448,112 @@ const Webhooks = () => {
             {targetSession && (
               <div>
                 <label className="block text-sm font-medium mb-2">Target Chat/Group</label>
-                <button
-                  onClick={() => loadChatsForSession(targetSession)}
-                  className="btn-secondary mb-2 text-sm"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader className="w-4 h-4 inline mr-2 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-4 h-4 inline mr-2" />
-                      Load Chats
-                    </>
-                  )}
-                </button>
                 
-                <select
-                  value={targetChatId}
-                  onChange={(e) => setTargetChatId(e.target.value)}
-                  className="input"
-                  disabled={chats.length === 0}
-                >
-                  <option value="">Select target chat...</option>
-                  {chats.map((chat) => (
-                    <option key={chat.id._serialized} value={chat.id._serialized}>
-                      {chat.name} {chat.isGroup ? '(Group)' : ''}
-                    </option>
-                  ))}
-                </select>
-                
-                {chats.length === 0 && (
-                  <p className="text-sm text-amber-600 mt-2">
-                    Click "Load Chats" to fetch available chats
-                  </p>
+                {/* Input Mode Toggle */}
+                <div className="flex gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setInputMode('select')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      inputMode === 'select'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                    }`}
+                  >
+                    Select from List
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInputMode('manual')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      inputMode === 'manual'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                    }`}
+                  >
+                    Manual Input
+                  </button>
+                </div>
+
+                {/* Select Mode */}
+                {inputMode === 'select' && (
+                  <>
+                    <button
+                      onClick={() => loadChatsForSession(targetSession)}
+                      className="btn-secondary mb-2 text-sm"
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader className="w-4 h-4 inline mr-2 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4 inline mr-2" />
+                          Load Chats
+                        </>
+                      )}
+                    </button>
+                    
+                    <select
+                      value={targetChatId}
+                      onChange={(e) => setTargetChatId(e.target.value)}
+                      className="input"
+                      disabled={chats.length === 0}
+                    >
+                      <option value="">Select target chat...</option>
+                      {chats.map((chat) => (
+                        <option key={chat.id._serialized} value={chat.id._serialized}>
+                          {chat.name} {chat.isGroup ? '(Group)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    
+                    {chats.length === 0 && (
+                      <p className="text-sm text-amber-600 mt-2">
+                        Click "Load Chats" to fetch available chats
+                      </p>
+                    )}
+                  </>
+                )}
+
+                {/* Manual Mode */}
+                {inputMode === 'manual' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1">
+                        Chat ID <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g., 6281234567890@c.us or 120363xxx@g.us"
+                        value={manualChatId}
+                        onChange={(e) => setManualChatId(e.target.value)}
+                        className="input font-mono text-sm"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">
+                        Format: <code className="bg-slate-100 px-1 rounded">phone@c.us</code> (personal) or{' '}
+                        <code className="bg-slate-100 px-1 rounded">groupid@g.us</code> (group)
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1">
+                        Display Name (optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g., Customer Support Group"
+                        value={manualChatName}
+                        onChange={(e) => setManualChatName(e.target.value)}
+                        className="input"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">
+                        Friendly name for this webhook (defaults to Chat ID if not provided)
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
