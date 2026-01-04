@@ -16,27 +16,34 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (token) {
-      verifyToken()
-    } else {
-      setLoading(false)
-    }
-  }, [])
-
-  const verifyToken = async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/auth/verify`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      if (response.data.success) {
-        setUser(response.data.user)
+    const initAuth = async () => {
+      const storedToken = localStorage.getItem('auth_token')
+      if (storedToken) {
+        try {
+          const response = await axios.get(`${API_BASE_URL}/api/auth/verify`, {
+            headers: { Authorization: `Bearer ${storedToken}` }
+          })
+          if (response.data.success) {
+            setUser(response.data.user)
+            setToken(storedToken)
+          } else {
+            // Token invalid, clear it
+            localStorage.removeItem('auth_token')
+            setToken(null)
+            setUser(null)
+          }
+        } catch (error) {
+          // Token verification failed, clear it silently
+          localStorage.removeItem('auth_token')
+          setToken(null)
+          setUser(null)
+        }
       }
-    } catch (error) {
-      logout()
-    } finally {
       setLoading(false)
     }
-  }
+    
+    initAuth()
+  }, [])
 
   const login = async (username, password) => {
     const response = await axios.post(`${API_BASE_URL}/api/auth/login`, { username, password })
