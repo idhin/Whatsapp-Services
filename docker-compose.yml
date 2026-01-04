@@ -8,26 +8,13 @@ services:
       dockerfile: Dockerfile
     restart: always
     ports:
-      - "${PORT:-${BACKEND_PORT:-3001}}:${PORT:-${BACKEND_PORT:-3001}}"
+      - "${PORT:-3001}:${PORT:-3001}"
     # Load all environment variables from .env file
     # This includes per-session webhooks like MYSESSION_WEBHOOK_URL
     env_file:
       - .env
     environment:
-      # Backward compatible: support both PORT and BACKEND_PORT
-      - PORT=${PORT:-${BACKEND_PORT:-3001}}
-      - API_KEY=${API_KEY}
-      - BASE_WEBHOOK_URL=${BASE_WEBHOOK_URL:-http://localhost:3001/localCallbackExample}
-      - ENABLE_LOCAL_CALLBACK_EXAMPLE=${ENABLE_LOCAL_CALLBACK_EXAMPLE:-TRUE}
-      - MAX_ATTACHMENT_SIZE=${MAX_ATTACHMENT_SIZE:-5000000}
-      - SET_MESSAGES_AS_SEEN=${SET_MESSAGES_AS_SEEN}
-      - DISABLED_CALLBACKS=${DISABLED_CALLBACKS:-message_ack|message_reaction}
-      - ENABLE_SWAGGER_ENDPOINT=${ENABLE_SWAGGER_ENDPOINT:-TRUE}
-      - RATE_LIMIT_MAX=${RATE_LIMIT_MAX}
-      - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS}
-      - WEB_VERSION=${WEB_VERSION}
-      - WEB_VERSION_CACHE_TYPE=${WEB_VERSION_CACHE_TYPE}
-      - RECOVER_SESSIONS=${RECOVER_SESSIONS}
+      - PORT=${PORT:-3001}
     volumes:
       - ./sessions:/usr/src/app/sessions
     networks:
@@ -44,7 +31,7 @@ services:
     environment:
       - NODE_ENV=production
       - BACKEND_HOST=backend
-      - BACKEND_PORT=${PORT:-${BACKEND_PORT:-3001}}
+      - BACKEND_PORT=${PORT:-3001}
     depends_on:
       - backend
     networks:
