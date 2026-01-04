@@ -18,6 +18,11 @@ sessions_test/
 # Webhook data (auto-generated)
 frontend/webhooks.json
 
+# Development notes (local only)
+NEXT_PLAN.md
+TODO.md
+NOTES.md
+
 # Logs
 logs/
 *.log

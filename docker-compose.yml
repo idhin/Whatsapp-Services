@@ -17,6 +17,11 @@ services:
       - PORT=${PORT:-3001}
     volumes:
       - ./sessions:/usr/src/app/sessions
+    # Fix DNS resolution issues
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
     networks:
       - whatsapp-network
 
