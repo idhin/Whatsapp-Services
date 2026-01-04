@@ -324,7 +324,24 @@ const getChats = async (req, res) => {
   try {
     const client = sessions.get(req.params.sessionId)
     const chats = await client.getChats()
-    res.json({ success: true, chats })
+    
+    // Return only essential fields to reduce response size and improve performance
+    const slimChats = chats.map(chat => ({
+      id: chat.id,
+      name: chat.name,
+      isGroup: chat.isGroup,
+      unreadCount: chat.unreadCount,
+      timestamp: chat.timestamp,
+      archived: chat.archived,
+      pinned: chat.pinned,
+      lastMessage: chat.lastMessage ? {
+        body: chat.lastMessage.body?.substring(0, 100),
+        timestamp: chat.lastMessage.timestamp,
+        fromMe: chat.lastMessage.fromMe
+      } : null
+    }))
+    
+    res.json({ success: true, chats: slimChats })
   } catch (error) {
     sendErrorResponse(res, 500, error.message)
   }

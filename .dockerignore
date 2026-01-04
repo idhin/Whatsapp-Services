@@ -24,6 +24,7 @@ frontend/build
 .env
 .env.*
 !.env.example
+nginx-server-ubuntu.conf
 
 # Logs
 logs
