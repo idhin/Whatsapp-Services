@@ -5,6 +5,36 @@ const sessions = new Map()
 const { baseWebhookURL, sessionFolderPath, maxAttachmentSize, setMessagesAsSeen, webVersion, webVersionCacheType, recoverSessions } = require('./config')
 const { triggerWebhook, waitForNestedObject, checkIfEventisEnabled } = require('./utils')
 
+// Retry tracking for session recovery
+const sessionRetryCount = new Map()
+const MAX_RETRY_ATTEMPTS = 5
+const BASE_RETRY_DELAY = 5000 // 5 seconds
+
+// Calculate exponential backoff delay
+const getRetryDelay = (retryCount) => {
+  // Exponential backoff: 5s, 10s, 20s, 40s, 60s (capped)
+  const delay = Math.min(BASE_RETRY_DELAY * Math.pow(2, retryCount), 60000)
+  return delay
+}
+
+// Get current retry count for a session
+const getRetryCount = (sessionId) => {
+  return sessionRetryCount.get(sessionId) || 0
+}
+
+// Increment retry count
+const incrementRetryCount = (sessionId) => {
+  const current = getRetryCount(sessionId)
+  sessionRetryCount.set(sessionId, current + 1)
+  return current + 1
+}
+
+// Reset retry count (call when session connects successfully)
+const resetRetryCount = (sessionId) => {
+  sessionRetryCount.delete(sessionId)
+  console.log(`✅ Retry counter reset for session ${sessionId}`)
+}
+
 // Function to validate if the session is ready
 const validateSession = async (sessionId) => {
   try {
@@ -146,20 +176,35 @@ const initializeEvents = (client, sessionId) => {
 
   if (recoverSessions) {
     waitForNestedObject(client, 'pupPage').then(() => {
-      const restartSession = async (sessionId) => {
+      const restartSessionWithRetry = async (sessionId, reason) => {
+        const retryCount = incrementRetryCount(sessionId)
+        
+        if (retryCount > MAX_RETRY_ATTEMPTS) {
+          console.log(`❌ Session ${sessionId}: Max retry attempts (${MAX_RETRY_ATTEMPTS}) reached. Stopping auto-recovery.`)
+          console.log(`💡 To restart manually: Use the dashboard or restart the container.`)
+          sessions.delete(sessionId)
+          return
+        }
+        
+        const delay = getRetryDelay(retryCount - 1)
+        console.log(`🔄 Session ${sessionId}: ${reason}. Retry ${retryCount}/${MAX_RETRY_ATTEMPTS} in ${delay/1000}s...`)
+        
+        // Clean up
         sessions.delete(sessionId)
         await client.destroy().catch(e => { })
-        setupSession(sessionId)
+        
+        // Wait before retry
+        setTimeout(() => {
+          console.log(`🚀 Attempting to restart session ${sessionId}...`)
+          setupSession(sessionId)
+        }, delay)
       }
+      
       client.pupPage.once('close', function () {
-        // emitted when the page closes
-        console.log(`Browser page closed for ${sessionId}. Restoring`)
-        restartSession(sessionId)
+        restartSessionWithRetry(sessionId, 'Browser page closed')
       })
       client.pupPage.once('error', function () {
-        // emitted when the page crashes
-        console.log(`Error occurred on browser page for ${sessionId}. Restoring`)
-        restartSession(sessionId)
+        restartSessionWithRetry(sessionId, 'Browser page error')
       })
     }).catch(e => { })
   }
@@ -203,7 +248,18 @@ const initializeEvents = (client, sessionId) => {
     
     // Auto-reconnect if enabled and not a manual logout
     if (recoverSessions && reason !== 'LOGOUT') {
-      console.log(`🔄 Auto-reconnect enabled. Attempting to reconnect session ${sessionId} in 5 seconds...`)
+      const retryCount = incrementRetryCount(sessionId)
+      
+      if (retryCount > MAX_RETRY_ATTEMPTS) {
+        console.log(`❌ Session ${sessionId}: Max retry attempts (${MAX_RETRY_ATTEMPTS}) reached after disconnect. Stopping auto-recovery.`)
+        console.log(`💡 To restart manually: Use the dashboard or restart the container.`)
+        sessions.delete(sessionId)
+        return
+      }
+      
+      const delay = getRetryDelay(retryCount - 1)
+      console.log(`🔄 Session ${sessionId}: Auto-reconnect retry ${retryCount}/${MAX_RETRY_ATTEMPTS} in ${delay/1000}s...`)
+      
       setTimeout(async () => {
         try {
           // Clean up existing session
@@ -218,7 +274,7 @@ const initializeEvents = (client, sessionId) => {
         } catch (error) {
           console.error(`❌ Failed to reconnect session ${sessionId}:`, error.message)
         }
-      }, 5000)
+      }, delay)
     }
   })
 
@@ -346,12 +402,16 @@ const initializeEvents = (client, sessionId) => {
       })
   })
 
-  checkIfEventisEnabled('ready')
-    .then(_ => {
-      client.on('ready', () => {
-        triggerWebhook(sessionWebhook, sessionId, 'ready')
-      })
+  // Ready event - session connected successfully
+  client.on('ready', () => {
+    console.log(`✅ Session ${sessionId} is ready and connected!`)
+    // Reset retry counter on successful connection
+    resetRetryCount(sessionId)
+    
+    checkIfEventisEnabled('ready').then(_ => {
+      triggerWebhook(sessionWebhook, sessionId, 'ready')
     })
+  })
 
   checkIfEventisEnabled('contact_changed')
     .then(_ => {
@@ -494,5 +554,7 @@ module.exports = {
   validateSession,
   deleteSession,
   reloadSession,
-  flushSessions
+  flushSessions,
+  resetRetryCount,
+  getRetryCount
 }
