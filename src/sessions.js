@@ -556,28 +556,45 @@ const reloadSession = async (sessionId) => {
   try {
     const client = sessions.get(sessionId)
     if (!client) {
+      // Client not in map, just setup new session
+      setupSession(sessionId)
       return
     }
-    client.pupPage.removeAllListeners('close')
-    client.pupPage.removeAllListeners('error')
-    try {
-      const pages = await client.pupBrowser.pages()
-      await Promise.all(pages.map((page) => page.close()))
-      await Promise.race([
-        client.pupBrowser.close(),
-        new Promise(resolve => setTimeout(resolve, 5000))
-      ])
-    } catch (e) {
-      const childProcess = client.pupBrowser.process()
-      if (childProcess) {
-        childProcess.kill(9)
+    
+    // Add null checks for pupPage and pupBrowser
+    if (client.pupPage) {
+      client.pupPage.removeAllListeners('close')
+      client.pupPage.removeAllListeners('error')
+    }
+    
+    if (client.pupBrowser) {
+      try {
+        const pages = await client.pupBrowser.pages()
+        await Promise.all(pages.map((page) => page.close()))
+        await Promise.race([
+          client.pupBrowser.close(),
+          new Promise(resolve => setTimeout(resolve, 5000))
+        ])
+      } catch (e) {
+        // Try to kill the process if browser close fails
+        try {
+          const childProcess = client.pupBrowser.process()
+          if (childProcess) {
+            childProcess.kill(9)
+          }
+        } catch (killError) {
+          console.log('Failed to kill browser process:', killError.message)
+        }
       }
     }
+    
     sessions.delete(sessionId)
     setupSession(sessionId)
   } catch (error) {
-    console.log(error)
-    throw error
+    console.log('reloadSession error:', error.message)
+    // Don't throw - just log and try to continue
+    sessions.delete(sessionId)
+    setupSession(sessionId)
   }
 }
 
@@ -585,29 +602,42 @@ const deleteSession = async (sessionId, validation) => {
   try {
     const client = sessions.get(sessionId)
     if (!client) {
+      // No client in map, just try to delete the folder
+      await deleteSessionFolder(sessionId).catch(() => {})
       return
     }
-    client.pupPage.removeAllListeners('close')
-    client.pupPage.removeAllListeners('error')
+    
+    // Add null checks for pupPage
+    if (client.pupPage) {
+      client.pupPage.removeAllListeners('close')
+      client.pupPage.removeAllListeners('error')
+    }
+    
     if (validation.success) {
       // Client Connected, request logout
       console.log(`Logging out session ${sessionId}`)
-      await client.logout()
+      await client.logout().catch(e => console.log('Logout error:', e.message))
     } else if (validation.message === 'session_not_connected') {
       // Client not Connected, request destroy
       console.log(`Destroying session ${sessionId}`)
-      await client.destroy()
+      await client.destroy().catch(e => console.log('Destroy error:', e.message))
     }
+    
     // Wait 10 secs for client.pupBrowser to be disconnected before deleting the folder
-    let maxDelay = 0
-    while (client.pupBrowser.isConnected() && (maxDelay < 10)) {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      maxDelay++
+    if (client.pupBrowser) {
+      let maxDelay = 0
+      while (client.pupBrowser.isConnected() && (maxDelay < 10)) {
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        maxDelay++
+      }
     }
-    await deleteSessionFolder(sessionId)
+    
+    await deleteSessionFolder(sessionId).catch(e => console.log('Delete folder error:', e.message))
     sessions.delete(sessionId)
   } catch (error) {
-    console.log(error)
+    console.log('deleteSession error:', error.message)
+    // Still try to clean up
+    sessions.delete(sessionId)
     throw error
   }
 }
