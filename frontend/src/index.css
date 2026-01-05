@@ -135,6 +135,10 @@
     @apply bg-red-50 text-red-700 border border-red-200;
   }
   
+  .badge-danger {
+    @apply bg-red-50 text-red-700 border border-red-200;
+  }
+  
   .badge-info {
     @apply bg-blue-50 text-blue-700 border border-blue-200;
   }

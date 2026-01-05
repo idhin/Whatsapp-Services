@@ -363,6 +363,129 @@ const terminateAllSessions = async (req, res) => {
   }
 }
 
+/**
+ * Detailed health check for a session.
+ * Returns comprehensive information about session state.
+ *
+ * @function
+ * @async
+ * @param {Object} req - The HTTP request object.
+ * @param {Object} res - The HTTP response object.
+ * @param {string} req.params.sessionId - The session ID to check.
+ * @returns {Promise<void>}
+ */
+const healthSession = async (req, res) => {
+  // #swagger.summary = 'Get detailed session health'
+  // #swagger.description = 'Returns comprehensive health information for the session.'
+  try {
+    const sessionId = req.params.sessionId
+    const session = sessions.get(sessionId)
+    
+    // Base response
+    const healthData = {
+      success: false,
+      sessionId,
+      exists: false,
+      state: null,
+      isReady: false,
+      hasQr: false,
+      info: null,
+      timestamp: new Date().toISOString()
+    }
+    
+    if (!session) {
+      healthData.message = 'Session not found'
+      return res.json(healthData)
+    }
+    
+    healthData.exists = true
+    healthData.hasQr = !!session.qr
+    
+    // Try to get session state
+    try {
+      const state = await session.getState()
+      healthData.state = state
+      healthData.isReady = state === 'CONNECTED'
+      
+      if (state === 'CONNECTED') {
+        healthData.success = true
+        healthData.message = 'Session is healthy and connected'
+        
+        // Get additional info if connected
+        try {
+          const info = session.info
+          if (info) {
+            healthData.info = {
+              wid: info.wid?._serialized || null,
+              pushname: info.pushname || null,
+              platform: info.platform || null
+            }
+          }
+        } catch (infoErr) {
+          // Info not available, continue
+        }
+      } else {
+        healthData.message = `Session is in state: ${state}`
+      }
+    } catch (stateErr) {
+      healthData.state = 'UNKNOWN'
+      healthData.message = `Unable to get state: ${stateErr.message}`
+    }
+    
+    res.json(healthData)
+  } catch (error) {
+    console.log('healthSession ERROR', error)
+    sendErrorResponse(res, 500, error.message)
+  }
+}
+
+/**
+ * Get all sessions status summary.
+ *
+ * @function
+ * @async
+ * @param {Object} req - The HTTP request object.
+ * @param {Object} res - The HTTP response object.
+ * @returns {Promise<void>}
+ */
+const allSessionsHealth = async (req, res) => {
+  // #swagger.summary = 'Get all sessions health summary'
+  // #swagger.description = 'Returns health status for all active sessions.'
+  try {
+    const sessionsList = []
+    
+    for (const [sessionId, session] of sessions) {
+      const sessionData = {
+        sessionId,
+        state: null,
+        isReady: false,
+        hasQr: !!session.qr
+      }
+      
+      try {
+        const state = await session.getState()
+        sessionData.state = state
+        sessionData.isReady = state === 'CONNECTED'
+      } catch (e) {
+        sessionData.state = 'UNKNOWN'
+      }
+      
+      sessionsList.push(sessionData)
+    }
+    
+    res.json({
+      success: true,
+      total: sessionsList.length,
+      connected: sessionsList.filter(s => s.isReady).length,
+      sessions: sessionsList,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.log('allSessionsHealth ERROR', error)
+    sendErrorResponse(res, 500, error.message)
+  }
+}
+
 module.exports = {
   startSession,
   statusSession,
@@ -371,5 +494,7 @@ module.exports = {
   restartSession,
   terminateSession,
   terminateInactiveSessions,
-  terminateAllSessions
+  terminateAllSessions,
+  healthSession,
+  allSessionsHealth
 }

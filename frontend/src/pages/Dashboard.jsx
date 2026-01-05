@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { sessionAPI } from '../api/whatsapp';
 import { useSession } from '../context/SessionContext';
 import toast from 'react-hot-toast';
-import { Play, RotateCw, X, QrCode, CheckCircle, XCircle, Loader, Plus, Activity, Zap, Server } from 'lucide-react';
+import { Play, RotateCw, X, QrCode, CheckCircle, XCircle, Loader, Plus, Activity, Zap, Server, Wifi, WifiOff, AlertCircle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 const Dashboard = () => {
@@ -11,10 +11,22 @@ const Dashboard = () => {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(false);
   const intervalsRef = useRef({});
+  const healthIntervalRef = useRef(null);
 
   // Load existing sessions on mount
   useEffect(() => {
     loadExistingSessions();
+    
+    // Start health check polling every 30 seconds
+    healthIntervalRef.current = setInterval(() => {
+      refreshAllSessionHealth();
+    }, 30000);
+    
+    return () => {
+      if (healthIntervalRef.current) {
+        clearInterval(healthIntervalRef.current);
+      }
+    };
   }, []);
 
   // Cleanup intervals on unmount
@@ -23,6 +35,37 @@ const Dashboard = () => {
       Object.values(intervalsRef.current).forEach(interval => clearInterval(interval));
     };
   }, []);
+  
+  // Refresh health status for all sessions
+  const refreshAllSessionHealth = async () => {
+    if (sessions.length === 0) return;
+    
+    for (const session of sessions) {
+      try {
+        const response = await sessionAPI.health(session.id);
+        if (response.data) {
+          updateSession(session.id, {
+            state: response.data.state,
+            isReady: response.data.isReady,
+            info: response.data.info,
+            lastHealthCheck: new Date().toISOString()
+          });
+          
+          // Update context if state changed
+          if (response.data.state === 'CONNECTED') {
+            updateSessionState(session.id, 'CONNECTED', true);
+          }
+          
+          // Auto-detect disconnection
+          if (session.state === 'CONNECTED' && response.data.state !== 'CONNECTED') {
+            toast.error(`Session ${session.id} disconnected! State: ${response.data.state || 'unknown'}`);
+          }
+        }
+      } catch (error) {
+        console.error(`Health check failed for ${session.id}:`, error);
+      }
+    }
+  };
 
   const loadExistingSessions = async () => {
     // Check localStorage for saved sessions
@@ -279,26 +322,56 @@ const Dashboard = () => {
 
   const getStatusIcon = (status, state) => {
     if (status === 'connected' || state === 'CONNECTED') {
-      return <CheckCircle className="w-5 h-5 text-green-500" />;
+      return <Wifi className="w-5 h-5 text-emerald-500" />;
+    }
+    if (state === 'OPENING' || state === 'PAIRING' || state === 'TIMEOUT') {
+      return <Loader className="w-5 h-5 text-amber-500 animate-spin" />;
     }
     if (status === 'starting' || status === 'restarting' || status === 'waiting_qr') {
-      return <Loader className="w-5 h-5 text-yellow-500 animate-spin" />;
+      return <Loader className="w-5 h-5 text-amber-500 animate-spin" />;
     }
-    if (status === 'error' || status === 'timeout') {
+    if (state === 'CONFLICT' || state === 'UNLAUNCHED' || state === 'UNPAIRED') {
+      return <AlertCircle className="w-5 h-5 text-amber-500" />;
+    }
+    if (status === 'error' || status === 'timeout' || state === 'DEPRECATED_VERSION') {
       return <XCircle className="w-5 h-5 text-red-500" />;
     }
-    return <XCircle className="w-5 h-5 text-gray-500" />;
+    return <WifiOff className="w-5 h-5 text-slate-400" />;
   };
 
   const getStatusText = (status, state) => {
+    // Priority to WhatsApp state
     if (state === 'CONNECTED') return 'Connected';
+    if (state === 'OPENING') return 'Opening...';
+    if (state === 'PAIRING') return 'Pairing...';
+    if (state === 'TIMEOUT') return 'Connection Timeout';
+    if (state === 'CONFLICT') return 'Conflict (open in another browser)';
+    if (state === 'UNLAUNCHED') return 'Not Launched';
+    if (state === 'UNPAIRED') return 'Unpaired';
+    if (state === 'DEPRECATED_VERSION') return 'WhatsApp Version Deprecated';
+    
+    // Fallback to local status
     if (status === 'starting') return 'Starting...';
     if (status === 'restarting') return 'Restarting...';
     if (status === 'waiting_qr') return 'Waiting for QR';
     if (status === 'qr_ready') return 'Scan QR Code';
     if (status === 'timeout') return 'Timeout';
     if (status === 'error') return 'Error';
-    return 'Not Started';
+    return 'Not Connected';
+  };
+  
+  const getStatusBadgeClass = (status, state) => {
+    if (state === 'CONNECTED') return 'badge-success';
+    if (state === 'OPENING' || state === 'PAIRING' || status === 'starting' || status === 'waiting_qr' || status === 'qr_ready') {
+      return 'badge-warning';
+    }
+    if (state === 'CONFLICT' || state === 'UNLAUNCHED' || state === 'UNPAIRED') {
+      return 'badge-warning';
+    }
+    if (status === 'error' || status === 'timeout' || state === 'DEPRECATED_VERSION' || state === 'TIMEOUT') {
+      return 'badge-danger';
+    }
+    return 'badge-neutral';
   };
 
   // Calculate stats
@@ -439,10 +512,22 @@ const Dashboard = () => {
                     {getStatusIcon(session.status, session.state)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-slate-900">{session.id}</h3>
-                    <p className="text-sm text-slate-500 mt-0.5">
-                      {getStatusText(session.status, session.state)}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-lg font-semibold text-slate-900">{session.id}</h3>
+                      <span className={`badge ${getStatusBadgeClass(session.status, session.state)}`}>
+                        {getStatusText(session.status, session.state)}
+                      </span>
+                    </div>
+                    {session.info && (
+                      <p className="text-sm text-slate-500 mt-0.5">
+                        {session.info.pushname || session.info.wid}
+                      </p>
+                    )}
+                    {session.lastHealthCheck && (
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Last check: {new Date(session.lastHealthCheck).toLocaleTimeString()}
+                      </p>
+                    )}
                   </div>
                 </div>
                 

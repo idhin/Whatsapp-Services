@@ -192,12 +192,35 @@ const initializeEvents = (client, sessionId) => {
       })
     })
 
-  checkIfEventisEnabled('disconnected')
-    .then(_ => {
-      client.on('disconnected', (reason) => {
-        triggerWebhook(sessionWebhook, sessionId, 'disconnected', { reason })
-      })
+  // Handle disconnected event - trigger webhook and auto-reconnect if enabled
+  client.on('disconnected', (reason) => {
+    console.log(`⚠️ Session ${sessionId} disconnected. Reason: ${reason}`)
+    
+    // Trigger webhook for disconnected event
+    checkIfEventisEnabled('disconnected').then(_ => {
+      triggerWebhook(sessionWebhook, sessionId, 'disconnected', { reason })
     })
+    
+    // Auto-reconnect if enabled and not a manual logout
+    if (recoverSessions && reason !== 'LOGOUT') {
+      console.log(`🔄 Auto-reconnect enabled. Attempting to reconnect session ${sessionId} in 5 seconds...`)
+      setTimeout(async () => {
+        try {
+          // Clean up existing session
+          sessions.delete(sessionId)
+          await client.destroy().catch(e => {
+            console.log(`Destroy error for ${sessionId}:`, e.message)
+          })
+          
+          // Restart session
+          console.log(`🚀 Restarting session ${sessionId}...`)
+          setupSession(sessionId)
+        } catch (error) {
+          console.error(`❌ Failed to reconnect session ${sessionId}:`, error.message)
+        }
+      }, 5000)
+    }
+  })
 
   checkIfEventisEnabled('group_join')
     .then(_ => {

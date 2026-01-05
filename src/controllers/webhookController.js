@@ -1,6 +1,6 @@
 const fs = require('fs')
 const path = require('path')
-const { sessions } = require('../sessions')
+const { sessions, validateSession } = require('../sessions')
 
 const WEBHOOKS_FILE = path.join(__dirname, '../../sessions/webhooks-data.json')
 const HISTORY_FILE = path.join(__dirname, '../../sessions/webhooks-history.json')
@@ -238,26 +238,67 @@ const handleWebhook = async (req, res) => {
     })
   }
   
-  // Get session client
-  const client = sessions.get(webhook.sessionId)
-  
-  if (!client) {
+  // Validate chatId format
+  const chatId = webhook.chatId
+  if (!chatId || (!chatId.endsWith('@c.us') && !chatId.endsWith('@g.us'))) {
     addHistory(webhookId, {
       status: 'error',
-      statusCode: 404,
+      statusCode: 400,
       payload,
-      error: 'Session not found or not connected'
+      error: 'Invalid chatId format. Must end with @c.us (personal) or @g.us (group)'
     })
     
-    return res.status(404).json({ 
+    return res.status(400).json({ 
       success: false, 
-      error: 'Session not found or not connected' 
+      error: 'Invalid chatId format. Must end with @c.us (personal) or @g.us (group)' 
     })
   }
   
+  // Validate session exists and is connected
+  const sessionValidation = await validateSession(webhook.sessionId)
+  
+  if (!sessionValidation.success) {
+    let statusCode = 503
+    let errorMessage = 'Session not ready'
+    
+    switch (sessionValidation.message) {
+      case 'session_not_found':
+        statusCode = 404
+        errorMessage = 'Session not found. Please create a new session.'
+        break
+      case 'session_not_connected':
+        statusCode = 503
+        errorMessage = `Session not connected. Current state: ${sessionValidation.state || 'unknown'}. Please reconnect.`
+        break
+      case 'browser tab closed':
+      case 'session closed':
+        statusCode = 503
+        errorMessage = 'Session browser closed. Attempting to reconnect...'
+        break
+      default:
+        errorMessage = sessionValidation.message || 'Session not ready'
+    }
+    
+    addHistory(webhookId, {
+      status: 'error',
+      statusCode,
+      payload,
+      error: errorMessage
+    })
+    
+    return res.status(statusCode).json({ 
+      success: false, 
+      error: errorMessage,
+      sessionState: sessionValidation.state
+    })
+  }
+  
+  // Get session client (already validated above)
+  const client = sessions.get(webhook.sessionId)
+  
   try {
     // Send message to WhatsApp
-    const message = await client.sendMessage(webhook.chatId, payload.message)
+    const message = await client.sendMessage(chatId, payload.message)
     
     addHistory(webhookId, {
       status: 'success',

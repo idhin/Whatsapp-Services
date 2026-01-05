@@ -38,6 +38,8 @@ api.interceptors.response.use(
 export const sessionAPI = {
   start: (sessionId) => api.get(`/session/start/${sessionId}`),
   status: (sessionId) => api.get(`/session/status/${sessionId}`),
+  health: (sessionId) => api.get(`/session/health/${sessionId}`),
+  allHealth: () => api.get('/session/health'),
   qr: (sessionId) => api.get(`/session/qr/${sessionId}`),
   qrImage: (sessionId) => api.get(`/session/qr/${sessionId}/image`, { responseType: 'blob' }),
   restart: (sessionId) => api.get(`/session/restart/${sessionId}`),
