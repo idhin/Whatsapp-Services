@@ -1,8 +1,7 @@
 const jwt = require('jsonwebtoken')
-const crypto = require('crypto')
-const { AUTH_CONFIG, otpStore, loginAttempts, checkRateLimit } = require('../middleware/auth')
+const { AUTH_CONFIG, loginAttempts, checkRateLimit } = require('../middleware/auth')
 
-// Login endpoint
+// Login endpoint - returns JWT directly
 const login = async (req, res) => {
   try {
     const { username, password } = req.body
@@ -31,75 +30,31 @@ const login = async (req, res) => {
       })
     }
     
-    // Generate OTP
-    const otp = crypto.randomInt(100000, 999999).toString()
-    const otpToken = crypto.randomBytes(32).toString('hex')
-    
-    // Store OTP
-    otpStore.set(otpToken, {
-      otp,
-      username,
-      expiresAt: Date.now() + AUTH_CONFIG.otpExpiry
-    })
-    
-    // TODO: Send OTP via email/WhatsApp
-    console.log(`🔐 OTP for ${username}: ${otp}`)
-    
     // Reset login attempts on successful credentials
     loginAttempts.delete(identifier)
     
+    // Generate JWT directly (no OTP)
+    const token = jwt.sign(
+      { username, role: 'admin' },
+      AUTH_CONFIG.jwtSecret,
+      { expiresIn: AUTH_CONFIG.jwtExpiry }
+    )
+    
+    console.log(`✅ Login successful for ${username}`)
+    
     res.json({
       success: true,
-      otpToken,
-      message: 'OTP sent. Check your console/email.',
-      // In production, remove this:
-      _dev_otp: process.env.NODE_ENV === 'development' ? otp : undefined
+      token,
+      user: { username, role: 'admin' }
     })
   } catch (error) {
     res.status(500).json({ success: false, error: error.message })
   }
 }
 
-// Verify OTP and issue JWT
+// Verify OTP - kept for backward compatibility but not used
 const verifyOTP = async (req, res) => {
-  try {
-    const { otpToken, otp } = req.body
-    
-    const otpData = otpStore.get(otpToken)
-    
-    if (!otpData) {
-      return res.status(401).json({ success: false, error: 'Invalid or expired OTP token' })
-    }
-    
-    // Check expiry
-    if (Date.now() > otpData.expiresAt) {
-      otpStore.delete(otpToken)
-      return res.status(401).json({ success: false, error: 'OTP expired' })
-    }
-    
-    // Verify OTP
-    if (otp !== otpData.otp) {
-      return res.status(401).json({ success: false, error: 'Invalid OTP' })
-    }
-    
-    // Generate JWT
-    const token = jwt.sign(
-      { username: otpData.username, role: 'admin' },
-      AUTH_CONFIG.jwtSecret,
-      { expiresIn: AUTH_CONFIG.jwtExpiry }
-    )
-    
-    // Clear OTP
-    otpStore.delete(otpToken)
-    
-    res.json({
-      success: true,
-      token,
-      user: { username: otpData.username, role: 'admin' }
-    })
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
-  }
+  res.status(410).json({ success: false, error: 'OTP verification is disabled' })
 }
 
 // Verify token endpoint

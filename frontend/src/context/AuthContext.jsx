@@ -47,11 +47,6 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     const response = await axios.post(`${API_BASE_URL}/api/auth/login`, { username, password })
-    return response.data
-  }
-
-  const verifyOTP = async (otpToken, otp) => {
-    const response = await axios.post(`${API_BASE_URL}/api/auth/verify-otp`, { otpToken, otp })
     if (response.data.success) {
       setToken(response.data.token)
       setUser(response.data.user)
@@ -68,7 +63,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, verifyOTP, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   )

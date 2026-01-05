@@ -1,14 +1,12 @@
 const jwt = require('jsonwebtoken')
 const crypto = require('crypto')
 
-// In-memory OTP storage (use Redis in production)
-const otpStore = new Map()
+// Rate limiting storage
 const loginAttempts = new Map()
 
 const AUTH_CONFIG = {
   jwtSecret: process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex'),
   jwtExpiry: '24h',
-  otpExpiry: 5 * 60 * 1000, // 5 minutes
   maxLoginAttempts: 5,
   lockoutDuration: 15 * 60 * 1000 // 15 minutes
 }
@@ -53,7 +51,6 @@ module.exports = {
   verifyToken,
   checkRateLimit,
   AUTH_CONFIG,
-  otpStore,
   loginAttempts
 }
 
