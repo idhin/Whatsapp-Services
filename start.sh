@@ -25,6 +25,17 @@ if [ "$1" == "--clear" ]; then
   fi
 else
   echo "📦 Keeping existing sessions and webhooks data..."
+  
+  # Remove Chromium lock files to prevent "profile in use" errors
+  # This is necessary when container was stopped unexpectedly
+  echo "🔓 Cleaning up browser lock files..."
+  find ./sessions -name "SingletonLock" -delete 2>/dev/null
+  find ./sessions -name "SingletonCookie" -delete 2>/dev/null
+  find ./sessions -name "SingletonSocket" -delete 2>/dev/null
+  find ./sessions -name "lockfile" -delete 2>/dev/null
+  # Also clean up any crashed Chromium state
+  find ./sessions -name "Crashpad" -type d -exec rm -rf {} + 2>/dev/null
+  echo "✅ Lock files cleaned!"
 fi
 
 echo ""

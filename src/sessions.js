@@ -7,6 +7,7 @@ const { triggerWebhook, waitForNestedObject, checkIfEventisEnabled } = require('
 
 // Retry tracking for session recovery
 const sessionRetryCount = new Map()
+const sessionRestartInProgress = new Map() // Track active restart operations
 const MAX_RETRY_ATTEMPTS = 5
 const BASE_RETRY_DELAY = 5000 // 5 seconds
 
@@ -158,7 +159,45 @@ const setupSession = (sessionId) => {
 
     const client = new Client(clientOptions)
 
-    client.initialize().catch(err => console.log('Initialize error:', err.message))
+    // Handle initialization errors properly
+    client.initialize().catch(err => {
+      console.log(`❌ Initialize error for ${sessionId}:`, err.message)
+      
+      // Prevent duplicate restarts
+      if (sessionRestartInProgress.get(sessionId)) {
+        console.log(`⏳ Session ${sessionId}: Restart already in progress, skipping init error handler...`)
+        return
+      }
+      
+      // Check if it's a DNS/network error
+      const isNetworkError = err.message.includes('ERR_NAME_NOT_RESOLVED') || 
+                             err.message.includes('net::') ||
+                             err.message.includes('network')
+      
+      if (isNetworkError && recoverSessions) {
+        sessionRestartInProgress.set(sessionId, true)
+        const retryCount = incrementRetryCount(sessionId)
+        
+        if (retryCount > MAX_RETRY_ATTEMPTS) {
+          console.log(`❌ Session ${sessionId}: Max retry attempts (${MAX_RETRY_ATTEMPTS}) reached due to network errors.`)
+          console.log(`💡 Check network/DNS settings and restart manually.`)
+          sessions.delete(sessionId)
+          sessionRestartInProgress.delete(sessionId)
+          return
+        }
+        
+        // Use longer delay for network errors (minimum 30 seconds)
+        const delay = Math.max(30000, getRetryDelay(retryCount - 1))
+        console.log(`🌐 Session ${sessionId}: Network error detected. Retry ${retryCount}/${MAX_RETRY_ATTEMPTS} in ${delay/1000}s...`)
+        
+        setTimeout(async () => {
+          sessions.delete(sessionId)
+          await client.destroy().catch(() => {})
+          sessionRestartInProgress.delete(sessionId)
+          setupSession(sessionId)
+        }, delay)
+      }
+    })
 
     initializeEvents(client, sessionId)
 
@@ -177,12 +216,20 @@ const initializeEvents = (client, sessionId) => {
   if (recoverSessions) {
     waitForNestedObject(client, 'pupPage').then(() => {
       const restartSessionWithRetry = async (sessionId, reason) => {
+        // Prevent duplicate restart attempts using shared flag
+        if (sessionRestartInProgress.get(sessionId)) {
+          console.log(`⏳ Session ${sessionId}: Restart already in progress, skipping ${reason}...`)
+          return
+        }
+        sessionRestartInProgress.set(sessionId, true)
+        
         const retryCount = incrementRetryCount(sessionId)
         
         if (retryCount > MAX_RETRY_ATTEMPTS) {
           console.log(`❌ Session ${sessionId}: Max retry attempts (${MAX_RETRY_ATTEMPTS}) reached. Stopping auto-recovery.`)
           console.log(`💡 To restart manually: Use the dashboard or restart the container.`)
           sessions.delete(sessionId)
+          sessionRestartInProgress.delete(sessionId)
           return
         }
         
@@ -196,6 +243,7 @@ const initializeEvents = (client, sessionId) => {
         // Wait before retry
         setTimeout(() => {
           console.log(`🚀 Attempting to restart session ${sessionId}...`)
+          sessionRestartInProgress.delete(sessionId)
           setupSession(sessionId)
         }, delay)
       }
@@ -248,12 +296,20 @@ const initializeEvents = (client, sessionId) => {
     
     // Auto-reconnect if enabled and not a manual logout
     if (recoverSessions && reason !== 'LOGOUT') {
+      // Prevent duplicate restart attempts
+      if (sessionRestartInProgress.get(sessionId)) {
+        console.log(`⏳ Session ${sessionId}: Restart already in progress, skipping disconnect handler...`)
+        return
+      }
+      sessionRestartInProgress.set(sessionId, true)
+      
       const retryCount = incrementRetryCount(sessionId)
       
       if (retryCount > MAX_RETRY_ATTEMPTS) {
         console.log(`❌ Session ${sessionId}: Max retry attempts (${MAX_RETRY_ATTEMPTS}) reached after disconnect. Stopping auto-recovery.`)
         console.log(`💡 To restart manually: Use the dashboard or restart the container.`)
         sessions.delete(sessionId)
+        sessionRestartInProgress.delete(sessionId)
         return
       }
       
@@ -270,9 +326,11 @@ const initializeEvents = (client, sessionId) => {
           
           // Restart session
           console.log(`🚀 Restarting session ${sessionId}...`)
+          sessionRestartInProgress.delete(sessionId)
           setupSession(sessionId)
         } catch (error) {
           console.error(`❌ Failed to reconnect session ${sessionId}:`, error.message)
+          sessionRestartInProgress.delete(sessionId)
         }
       }, delay)
     }
@@ -407,6 +465,7 @@ const initializeEvents = (client, sessionId) => {
     console.log(`✅ Session ${sessionId} is ready and connected!`)
     // Reset retry counter on successful connection
     resetRetryCount(sessionId)
+    sessionRestartInProgress.delete(sessionId)
     
     checkIfEventisEnabled('ready').then(_ => {
       triggerWebhook(sessionWebhook, sessionId, 'ready')

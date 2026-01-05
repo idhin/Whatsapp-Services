@@ -17,6 +17,8 @@ services:
       - PORT=${PORT:-3001}
     volumes:
       - ./sessions:/usr/src/app/sessions
+    # Shared memory for Chromium browser (required for stable operation)
+    shm_size: '1gb'
     # Fix DNS resolution issues
     dns:
       - 8.8.8.8
