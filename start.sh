@@ -42,6 +42,16 @@ find ./sessions -type f -name "*.lock" -delete 2>/dev/null
 find ./sessions -name "DevToolsActivePort" -delete 2>/dev/null
 echo "✅ Lock files cleaned!"
 
+# Clean browser cache directories to free memory (keeps auth data intact)
+echo "🧹 Cleaning browser cache (keeping auth)..."
+find ./sessions -type d -name "Cache" -exec rm -rf {} + 2>/dev/null
+find ./sessions -type d -name "Code Cache" -exec rm -rf {} + 2>/dev/null
+find ./sessions -type d -name "GPUCache" -exec rm -rf {} + 2>/dev/null
+find ./sessions -type d -name "ShaderCache" -exec rm -rf {} + 2>/dev/null
+find ./sessions -type d -name "Service Worker" -exec rm -rf {} + 2>/dev/null
+find ./sessions -type d -name "blob_storage" -exec rm -rf {} + 2>/dev/null
+echo "✅ Cache cleaned!"
+
 echo ""
 echo "📂 Current sessions folder:"
 ls -la ./sessions/ 2>/dev/null || echo "   (empty or not exists)"

@@ -153,7 +153,20 @@ const setupSession = (sessionId) => {
           '--disable-ipc-flooding-protection',
           '--disable-renderer-backgrounding',
           '--force-color-profile=srgb',
-          '--hide-scrollbars'
+          '--hide-scrollbars',
+          // Memory optimization flags for low-memory servers
+          '--js-flags=--max-old-space-size=128',
+          '--renderer-process-limit=1',
+          '--disable-canvas-aa',
+          '--disable-2d-canvas-clip-aa',
+          '--disable-gl-drawing-for-tests',
+          '--disable-software-rasterizer',
+          '--memory-pressure-off',
+          '--disable-partial-raster',
+          '--disable-skia-runtime-opts',
+          '--disable-remote-fonts',
+          '--disable-logging',
+          '--log-level=3'
         ]
       },
       userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36',
