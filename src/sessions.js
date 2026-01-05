@@ -137,8 +137,6 @@ const setupSession = (sessionId) => {
           '--disable-dev-shm-usage',
           '--disable-accelerated-2d-canvas',
           '--no-first-run',
-          '--no-zygote',
-          '--single-process',
           '--disable-extensions',
           '--disable-background-networking',
           '--disable-default-apps',
@@ -151,11 +149,11 @@ const setupSession = (sessionId) => {
           '--disable-backgrounding-occluded-windows',
           '--disable-breakpad',
           '--disable-component-extensions-with-background-pages',
-          '--disable-features=TranslateUI',
+          '--disable-features=TranslateUI,site-per-process',
           '--disable-ipc-flooding-protection',
           '--disable-renderer-backgrounding',
-          '--enable-features=NetworkService,NetworkServiceInProcess',
-          '--force-color-profile=srgb'
+          '--force-color-profile=srgb',
+          '--hide-scrollbars'
         ]
       },
       userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36',

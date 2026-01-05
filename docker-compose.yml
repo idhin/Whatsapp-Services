@@ -18,7 +18,8 @@ services:
     volumes:
       - ./sessions:/usr/src/app/sessions
     # Shared memory for Chromium browser (required for stable operation)
-    shm_size: '1gb'
+    # Increased to 2gb for better stability with multiple sessions
+    shm_size: '2gb'
     # Fix DNS resolution issues
     dns:
       - 8.8.8.8
